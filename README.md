@@ -251,11 +251,6 @@ Contributions are welcome! Please follow these guidelines:
 
 ---
 
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
----
 
 ## 🙏 Acknowledgments
 
@@ -267,7 +262,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 📞 Support
 
-For support, email support@prahaar.app or open an issue in the repository.
+For support, email j.gajanand1123@gmail.com or open an issue in the repository.
 
 ---
 
@@ -275,7 +270,7 @@ For support, email support@prahaar.app or open an issue in the repository.
 
 ---
 
-## 🆕 Recent Updates (December 2024)
+## 🆕 Recent Updates (December 2025)
 
 ### Latest Features Implemented
 - ✅ **Habit Challenge Day Locking**: Only current day can be logged (prevents cheating)
