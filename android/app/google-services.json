@@ -1,0 +1,98 @@
+{
+  "project_info": {
+    "project_number": "597058511051",
+    "project_id": "prahar-app-82378",
+    "storage_bucket": "prahar-app-82378.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:597058511051:android:a85f461e68303550aa7b4e",
+        "android_client_info": {
+          "package_name": "com.example.prahaar"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "597058511051-9nsidbkfsqbf0mtm962ri77cj8d48v4q.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.prahaar",
+            "certificate_hash": "0eba686e5a008e36c62f3950a96804c5565c1a54"
+          }
+        },
+        {
+          "client_id": "597058511051-0u3mrdg511q76vcps3jaip2l69mobk8a.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD6EAruLRmMZEMoZpqfIiSz93zomtO7DZ8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "597058511051-0u3mrdg511q76vcps3jaip2l69mobk8a.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "597058511051-1vuq6t9kpjkrr98du74c5fk0rvlgkavv.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.prahar"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:597058511051:android:c94267025b1d7bf3aa7b4e",
+        "android_client_info": {
+          "package_name": "com.example.prahar"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "597058511051-s5mn3an5v4vmnoog9baf7p5bhiag88ro.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.prahar",
+            "certificate_hash": "0eba686e5a008e36c62f3950a96804c5565c1a54"
+          }
+        },
+        {
+          "client_id": "597058511051-0u3mrdg511q76vcps3jaip2l69mobk8a.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD6EAruLRmMZEMoZpqfIiSz93zomtO7DZ8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "597058511051-0u3mrdg511q76vcps3jaip2l69mobk8a.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "597058511051-1vuq6t9kpjkrr98du74c5fk0rvlgkavv.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.prahar"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
