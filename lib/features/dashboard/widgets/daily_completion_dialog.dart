@@ -6,15 +6,111 @@ import 'package:prahar/data/models/weekly_goal_model.dart';
 import 'package:prahar/providers/auth_providers.dart';
 import 'package:prahar/providers/firestore_providers.dart';
 
-class DailyCompletionDialog extends ConsumerWidget {
+class DailyCompletionDialog extends ConsumerStatefulWidget {
   final WeeklyGoal goal;
 
   const DailyCompletionDialog({super.key, required this.goal});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DailyCompletionDialog> createState() => _DailyCompletionDialogState();
+}
+
+class _DailyCompletionDialogState extends ConsumerState<DailyCompletionDialog> 
+    with TickerProviderStateMixin {
+  // Track which day is currently animating
+  int? _animatingDayIndex;
+  late AnimationController _scaleController;
+  late AnimationController _checkController;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _checkAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    
+    // Scale animation for the bounce effect
+    _scaleController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _scaleAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.85), weight: 30),
+      TweenSequenceItem(tween: Tween(begin: 0.85, end: 1.15), weight: 40),
+      TweenSequenceItem(tween: Tween(begin: 1.15, end: 1.0), weight: 30),
+    ]).animate(CurvedAnimation(
+      parent: _scaleController,
+      curve: Curves.easeInOut,
+    ));
+
+    // Checkmark animation
+    _checkController = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+    _checkAnimation = CurvedAnimation(
+      parent: _checkController,
+      curve: Curves.elasticOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _scaleController.dispose();
+    _checkController.dispose();
+    super.dispose();
+  }
+
+  void _onDayTapped(int dayIndex, bool isCurrentlyCompleted) {
+    final user = ref.read(authStateChangeProvider).value;
+    if (user == null) return;
+
+    setState(() {
+      _animatingDayIndex = dayIndex;
+    });
+
+    // Play scale animation
+    _scaleController.forward(from: 0);
+
+    // If marking as complete, play the check animation
+    if (!isCurrentlyCompleted) {
+      _checkController.forward(from: 0);
+    } else {
+      _checkController.reverse(from: 1);
+    }
+
+    // Update Firestore
+    ref.read(firestoreServiceProvider).updateDailyGoalCompletion(
+      user.uid,
+      widget.goal.id!,
+      dayIndex,
+      !isCurrentlyCompleted,
+    );
+
+    // Reset animating index after animation completes
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (mounted) {
+        setState(() {
+          _animatingDayIndex = null;
+        });
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final user = ref.read(authStateChangeProvider).value;
     if (user == null) return const SizedBox();
+
+    // Watch for goal updates to get real-time completion status
+    final goalsAsync = ref.watch(weeklyGoalsProvider);
+    
+    // Get the current goal state (might be updated)
+    final currentGoal = goalsAsync.whenOrNull(
+      data: (goals) => goals.firstWhere(
+        (g) => g.id == widget.goal.id,
+        orElse: () => widget.goal,
+      ),
+    ) ?? widget.goal;
 
     // Get the start of the current week (Sunday)
     final now = DateTime.now();
@@ -60,7 +156,7 @@ class DailyCompletionDialog extends ConsumerWidget {
                         ),
                       ),
                       Text(
-                        goal.title,
+                        currentGoal.title,
                         style: GoogleFonts.oswald(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -102,7 +198,7 @@ class DailyCompletionDialog extends ConsumerWidget {
                     ),
                   ),
                   Text(
-                    '${goal.getCompletedDaysCount()}/7 DAYS',
+                    '${currentGoal.getCompletedDaysCount()}/7 DAYS',
                     style: GoogleFonts.oswald(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -123,20 +219,64 @@ class DailyCompletionDialog extends ConsumerWidget {
                 final isToday = WeeklyGoal.isToday(dayDate);
                 final isPast = WeeklyGoal.isPast(dayDate);
                 final isFuture = WeeklyGoal.isFuture(dayDate);
-                final isCompleted = goal.isDayCompleted(index);
+                final isCompleted = currentGoal.isDayCompleted(index);
+                // Only today can be toggled - days unlock at midnight
                 final canToggle = isToday;
+                final isAnimating = _animatingDayIndex == index;
+                
+                // Determine colors based on state
+                Color circleColor;
+                Color borderColor;
+                Color? iconColor;
+                IconData? icon;
+                List<BoxShadow>? shadow;
+                
+                if (isCompleted) {
+                  // Completed - Green
+                  circleColor = kMilitaryGreen;
+                  borderColor = kMilitaryGreen;
+                  iconColor = Colors.white;
+                  icon = Icons.check;
+                  shadow = [
+                    BoxShadow(
+                      color: kMilitaryGreen.withOpacity(0.4),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ];
+                } else if (isPast) {
+                  // Past and not completed - Red (missed)
+                  circleColor = Colors.red.shade400;
+                  borderColor = Colors.red.shade400;
+                  iconColor = Colors.white;
+                  icon = Icons.close;
+                  shadow = [
+                    BoxShadow(
+                      color: Colors.red.withOpacity(0.3),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ];
+                } else if (isFuture) {
+                  // Future - Locked (grey)
+                  circleColor = Colors.grey[200]!;
+                  borderColor = Colors.grey[300]!;
+                  iconColor = Colors.grey[400];
+                  icon = Icons.lock_outline;
+                  shadow = null;
+                } else {
+                  // Today and not completed - White with green border
+                  circleColor = Colors.white;
+                  borderColor = kMilitaryGreen;
+                  iconColor = null;
+                  icon = null;
+                  shadow = null;
+                }
 
                 return Expanded(
                   child: GestureDetector(
                     onTap: canToggle
-                        ? () {
-                            ref.read(firestoreServiceProvider).updateDailyGoalCompletion(
-                                  user.uid,
-                                  goal.id!,
-                                  index,
-                                  !isCompleted,
-                                );
-                          }
+                        ? () => _onDayTapped(index, isCompleted)
                         : null,
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -148,39 +288,45 @@ class DailyCompletionDialog extends ConsumerWidget {
                             style: GoogleFonts.oswald(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
-                              color: isToday ? kMilitaryGreen : kTextDarkSecondary,
+                              color: isToday 
+                                  ? kMilitaryGreen 
+                                  : (isPast && !isCompleted 
+                                      ? Colors.red.shade400 
+                                      : kTextDarkSecondary),
                               letterSpacing: 1.0,
                             ),
                           ),
                           const SizedBox(height: 8),
 
-                          // Day circle
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: isCompleted
-                                  ? kMilitaryGreen
-                                  : (isFuture
-                                      ? Colors.grey[200]
-                                      : Colors.white),
-                              border: Border.all(
-                                color: isToday
-                                    ? kMilitaryGreen
-                                    : (isCompleted
-                                        ? kMilitaryGreen
-                                        : Colors.grey[300]!),
-                                width: isToday ? 2 : 1,
-                              ),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Center(
-                              child: isCompleted
-                                  ? const Icon(Icons.check, color: Colors.white, size: 20)
-                                  : (isFuture
-                                      ? Icon(Icons.lock_outline, color: Colors.grey[400], size: 16)
-                                      : null),
-                            ),
+                          // Day circle with animation
+                          AnimatedBuilder(
+                            animation: _scaleAnimation,
+                            builder: (context, child) {
+                              return Transform.scale(
+                                scale: isAnimating ? _scaleAnimation.value : 1.0,
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: circleColor,
+                                    border: Border.all(
+                                      color: borderColor,
+                                      width: isToday ? 2 : 1,
+                                    ),
+                                    shape: BoxShape.circle,
+                                    boxShadow: shadow,
+                                  ),
+                                  child: Center(
+                                    child: icon != null
+                                        ? (isCompleted && isAnimating
+                                            ? _buildAnimatedCheck(isAnimating)
+                                            : Icon(icon, color: iconColor, size: icon == Icons.lock_outline ? 16 : 20))
+                                        : null,
+                                  ),
+                                ),
+                              );
+                            },
                           ),
 
                           const SizedBox(height: 4),
@@ -190,11 +336,15 @@ class DailyCompletionDialog extends ConsumerWidget {
                             isToday
                                 ? 'TODAY'
                                 : (isPast
-                                    ? (isCompleted ? 'DONE' : '')
+                                    ? (isCompleted ? 'DONE' : 'MISSED')
                                     : ''),
                             style: GoogleFonts.oswald(
                               fontSize: 8,
-                              color: isToday ? kMilitaryGreen : kTextDarkSecondary,
+                              color: isToday 
+                                  ? kMilitaryGreen 
+                                  : (isPast && !isCompleted 
+                                      ? Colors.red.shade400 
+                                      : kTextDarkSecondary),
                               letterSpacing: 0.5,
                             ),
                           ),
@@ -222,7 +372,7 @@ class DailyCompletionDialog extends ConsumerWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Tap today\'s circle to mark complete. Past and future days are locked.',
+                      'Tap today to mark complete. Days unlock at midnight. Green = Done, Red = Missed.',
                       style: GoogleFonts.lato(
                         fontSize: 11,
                         color: kTextDarkPrimary,
@@ -259,4 +409,21 @@ class DailyCompletionDialog extends ConsumerWidget {
       ),
     );
   }
+
+  /// Build animated checkmark icon
+  Widget _buildAnimatedCheck(bool isAnimating) {
+    if (isAnimating) {
+      return AnimatedBuilder(
+        animation: _checkAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _checkAnimation.value,
+            child: const Icon(Icons.check, color: Colors.white, size: 20),
+          );
+        },
+      );
+    }
+    return const Icon(Icons.check, color: Colors.white, size: 20);
+  }
 }
+

@@ -17,8 +17,13 @@ class ExamReadinessCard extends ConsumerWidget {
     
     if (user == null || settings == null) return const SizedBox.shrink();
 
-    final examDate = settings.examDate ?? DateTime.now().add(const Duration(days: 180));
-    final readinessAsync = ref.watch(examReadinessProvider((userId: user.uid, examDate: examDate)));
+    // Normalize the exam date to prevent infinite rebuilds due to millisecond differences in DateTime.now()
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final examDate = settings.examDate ?? today.add(const Duration(days: 180));
+    final normalizedExamDate = DateTime(examDate.year, examDate.month, examDate.day);
+    
+    final readinessAsync = ref.watch(examReadinessProvider((userId: user.uid, examDate: normalizedExamDate)));
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

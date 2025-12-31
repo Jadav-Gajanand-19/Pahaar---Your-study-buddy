@@ -30,10 +30,16 @@ class HabitChallenge {
   }
 
   /// Get the current day number based on today's date (1-indexed)
+  /// Calculates based on calendar days, incrementing at 12:00 AM midnight
   int getCurrentDayNumber() {
     final now = DateTime.now();
     final start = startDate.toDate();
-    final difference = now.difference(start).inDays + 1; // +1 to make it 1-indexed
+    
+    // Normalize both to midnight to count calendar days correctly
+    final startDateMidnight = DateTime(start.year, start.month, start.day);
+    final nowMidnight = DateTime(now.year, now.month, now.day);
+    
+    final difference = nowMidnight.difference(startDateMidnight).inDays + 1; // +1 to make it 1-indexed
     return difference.clamp(1, duration);
   }
 

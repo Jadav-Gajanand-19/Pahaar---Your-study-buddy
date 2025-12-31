@@ -1,4 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:prahar/data/datasources/firestore_service.dart';
+import 'package:prahar/features/quiz/models/question_model.dart';
 
 /// Exam Readiness Predictor Service
 /// Calculates overall exam readiness based on multiple factors
@@ -54,14 +56,17 @@ class ReadinessCalculatorService {
   Future<int> _calculateStudyReadiness(String userId, DateTime examDate) async {
     try {
       final daysUntilExam = examDate.difference(DateTime.now()).inDays;
-      final weeksRemaining = (daysUntilExam / 7).ceil();
+      final weeksRemaining = (daysUntilExam / 7).ceil().clamp(1, 52);
       
-      // Get total study hours
-      final sessions = await _firestoreService.getSessionsForDateRange(
+      // Use a one-off Future fetch instead of a Stream for better reliability in calculations
+      final sessions = await _firestoreService.getSessionsForDateRangeOnce(
         userId,
         DateTime.now().subtract(const Duration(days: 90)),
         DateTime.now(),
-      ).first;
+      ).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => [], // Return empty list on timeout
+      );
       
       final totalHours = sessions.fold<int>(0, (sum, session) => 
         sum + (session.durationInSeconds / 3600).floor()
@@ -73,21 +78,69 @@ class ReadinessCalculatorService {
       
       return score;
     } catch (e) {
+      print('Error calculating study readiness: $e');
       return 0;
     }
   }
 
   /// Calculate quiz performance readiness (0-100)
   Future<int> _calculateQuizReadiness(String userId) async {
-    // TODO: Fetch quiz results and calculate average accuracy
-    // For now, return default
-    return  50; // Placeholder
+    try {
+      final sessions = await _firestoreService.getUserQuizSessionsOnce(userId).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => [],
+      );
+      
+      if (sessions.isEmpty) return 0;
+      
+      // Filter sessions from last 30 days
+      final now = DateTime.now();
+      final lastMonth = now.subtract(const Duration(days: 30));
+      
+      final recentSessions = sessions.where((s) {
+        return s.startTime.isAfter(lastMonth);
+      }).toList();
+      
+      if (recentSessions.isEmpty) return 0;
+      
+      double totalAccuracy = 0;
+      for (final s in recentSessions) {
+        final score = s.score ?? 0;
+        final total = s.questionIds.isNotEmpty ? s.questionIds.length : 1;
+        totalAccuracy += (score / total) * 100;
+      }
+      
+      return (totalAccuracy / recentSessions.length).clamp(0, 100).toInt();
+    } catch (e) {
+      print('Error calculating quiz readiness: $e');
+      return 0;
+    }
   }
 
   /// Calculate fitness readiness (0-100)
   Future<int> _calculateFitnessReadiness(String userId) async {
-    // TODO: Compare current fitness to SSB standards
-    return 50; // Placeholder
+    try {
+      final now = DateTime.now();
+      final lastFortnight = now.subtract(const Duration(days: 14));
+      
+      final workouts = await _firestoreService.getWorkoutsForDateRangeOnce(
+        userId,
+        lastFortnight,
+        now,
+      ).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => [],
+      );
+      
+      // Target: 4 workouts per week (8 per fortnight)
+      const targetWorkouts = 8;
+      final score = ((workouts.length / targetWorkouts) * 100).clamp(0, 100).toInt();
+      
+      return score;
+    } catch (e) {
+      print('Error calculating fitness readiness: $e');
+      return 0;
+    }
   }
 
   /// Calculate time readiness (0-100)

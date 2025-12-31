@@ -125,7 +125,9 @@ class AnalyticsService {
     DateTime startDate,
     DateTime endDate,
   ) async {
-    final tests = await _firestoreService.getMockTests(userId).first;
+    final tests = await _firestoreService.getMockTests(userId)
+        .first
+        .timeout(const Duration(seconds: 10), onTimeout: () => []);
     
     // Filter tests in date range
     final filteredTests = tests.where((test) {
@@ -203,8 +205,8 @@ class AnalyticsService {
 
     // Get study sessions
     final sessions = await _firestoreService
-        .getSessionsForDateRange(userId, weekStart, weekEnd)
-        .first;
+        .getSessionsForDateRangeOnce(userId, weekStart, weekEnd)
+        .timeout(const Duration(seconds: 5), onTimeout: () => []);
     final studyHours = sessions.fold<int>(
       0,
       (sum, session) => sum + (session.durationInSeconds ~/ 3600),
@@ -212,13 +214,14 @@ class AnalyticsService {
 
     // Get workouts
     final workouts = await _firestoreService
-        .getWorkoutsForDateRange(userId, weekStart, weekEnd)
-        .first;
+        .getWorkoutsForDateRangeOnce(userId, weekStart, weekEnd)
+        .timeout(const Duration(seconds: 5), onTimeout: () => []);
 
     // Get habit logs for streak calculation
     final habitLogs = await _firestoreService
         .getHabitLogsForDateRange(userId, weekStart, weekEnd)
-        .first;
+        .first
+        .timeout(const Duration(seconds: 10), onTimeout: () => []);
     
     // Calculate unique days with habit completions
     final uniqueDays = <String>{};
@@ -313,8 +316,8 @@ class AnalyticsService {
 
     // Get study sessions
     final sessions = await _firestoreService
-        .getSessionsForMonth(userId, month)
-        .first;
+        .getSessionsForMonthOnce(userId, month)
+        .timeout(const Duration(seconds: 5), onTimeout: () => []);
     
     final totalMinutes = sessions.fold<int>(
       0,
@@ -330,7 +333,9 @@ class AnalyticsService {
     }
 
     // Get mock tests
-    final tests = await _firestoreService.getMockTests(userId).first;
+    final tests = await _firestoreService.getMockTests(userId)
+        .first
+        .timeout(const Duration(seconds: 10), onTimeout: () => []);
     final monthTests = tests.where((t) {
       final testDate = t.date.toDate();
       return testDate.isAfter(monthStart) && testDate.isBefore(monthEnd);
@@ -338,8 +343,8 @@ class AnalyticsService {
 
     // Get workouts
    final workouts = await _firestoreService
-        .getWorkoutsForDateRange(userId, monthStart, monthEnd)
-        .first;
+        .getWorkoutsForDateRangeOnce(userId, monthStart, monthEnd)
+        .timeout(const Duration(seconds: 5), onTimeout: () => []);
 
     return MonthAnalytics(
       month: month,

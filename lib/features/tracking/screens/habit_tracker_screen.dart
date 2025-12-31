@@ -558,27 +558,31 @@ void _showAddOrEditHabitDialog(BuildContext context, WidgetRef ref, {Habit? habi
                     final reminderTimeString = selectedTime == null ? null : '${selectedTime!.hour.toString().padLeft(2, '0')}:${selectedTime!.minute.toString().padLeft(2, '0')}';
                     final notificationService = NotificationService();
                     
+                    String habitId;
                     if (isEditing) {
                       await ref.read(firestoreServiceProvider).updateHabit(
                          user.uid, habit.id!,
                          title: title, category: selectedCategory, reminderTime: reminderTimeString
                       );
                       await notificationService.cancelNotification(habit.id!.hashCode);
+                      habitId = habit.id!;
                     } else {
                       final newHabit = Habit(
                         title: title, category: selectedCategory, createdAt: Timestamp.now(), reminderTime: reminderTimeString
                       );
                       final docRef = await ref.read(firestoreServiceProvider).addHabit(user.uid, newHabit);
-                      if(selectedTime!=null) {
-                        // Use hybrid notification for critical habit reminders
-                        final hybridService = ref.read(hybridNotificationServiceProvider);
-                        await hybridService.scheduleHabitReminderHybrid(
-                          userId: user.uid,
-                          habitId: docRef.id.hashCode,
-                          habitTitle: title,
-                          reminderTime: selectedTime!,
-                        );
-                      }
+                      habitId = docRef.id;
+                    }
+
+                    if (selectedTime != null) {
+                      // Schedule/Reschedule hybrid notification for critical habit reminders
+                      final hybridService = ref.read(hybridNotificationServiceProvider);
+                      await hybridService.scheduleHabitReminderHybrid(
+                        userId: user.uid,
+                        habitId: habitId.hashCode,
+                        habitTitle: title,
+                        reminderTime: selectedTime!,
+                      );
                     }
                     if(context.mounted) Navigator.pop(context);
                   }

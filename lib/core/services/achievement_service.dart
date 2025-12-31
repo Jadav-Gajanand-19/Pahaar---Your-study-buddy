@@ -197,8 +197,8 @@ class AchievementService {
     try {
       // Get already unlocked achievements
       final unlockedIds = await _firestoreService
-          .getUnlockedAchievementIds(userId)
-          .first;
+          .getUnlockedAchievementIdsOnce(userId)
+          .timeout(const Duration(seconds: 5), onTimeout: () => []);
 
       // Check each achievement
       for (final achievement in allAchievements) {
@@ -242,12 +242,12 @@ class AchievementService {
         // Check total study sessions
         if (actionType == 'study') {
           final sessions = await _firestoreService
-              .getSessionsForDateRange(
+              .getSessionsForDateRangeOnce(
                 userId,
                 DateTime(2000),
                 DateTime.now(),
               )
-              .first;
+              .timeout(const Duration(seconds: 5), onTimeout: () => []);
           return sessions.length >= criteriaValue;
         }
         break;
@@ -256,12 +256,12 @@ class AchievementService {
         // Check total study hours
         if (actionType == 'study') {
           final sessions = await _firestoreService
-              .getSessionsForDateRange(
+              .getSessionsForDateRangeOnce(
                 userId,
                 DateTime(2000),
                 DateTime.now(),
               )
-              .first;
+              .timeout(const Duration(seconds: 5), onTimeout: () => []);
           final totalMinutes = sessions.fold<int>(
             0,
             (sum, session) => sum + (session.durationInSeconds / 60).floor(),
@@ -280,7 +280,8 @@ class AchievementService {
       case 'workout_count':
         // Check total workouts
         if (actionType == 'fitness') {
-          final workouts = await _firestoreService.getWorkouts(userId).first;
+          final workouts = await _firestoreService.getWorkoutsOnce(userId)
+              .timeout(const Duration(seconds: 5), onTimeout: () => []);
           return workouts.length >= criteriaValue;
         }
         break;
@@ -288,7 +289,8 @@ class AchievementService {
       case 'quiz_count':
         // Check total quizzes
         if (actionType == 'quiz') {
-          final quizzes = await _firestoreService.getUserQuizSessions(userId).first;
+          final quizzes = await _firestoreService.getUserQuizSessionsOnce(userId)
+              .timeout(const Duration(seconds: 5), onTimeout: () => []);
           return quizzes.length >= criteriaValue;
         }
         break;

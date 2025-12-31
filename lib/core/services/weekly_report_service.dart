@@ -44,7 +44,10 @@ class WeeklyReportService {
 
   Future<Map<String, dynamic>> _aggregateStudyData(String userId, DateTime start, DateTime end) async {
     try {
-      final sessions = await _firestoreService.getSessionsForDateRange(userId, start, end).first;
+      final sessions = await _firestoreService.getSessionsForDateRangeOnce(userId, start, end).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => [],
+      );
       
       final totalMinutes = sessions.fold<int>(0, (sum, session) => 
         sum + (session.durationInSeconds / 60).floor()
@@ -63,8 +66,10 @@ class WeeklyReportService {
 
   Future<Map<String, dynamic>> _aggregateFitnessData(String userId, DateTime start, DateTime end) async {
     try {
-      final workouts = await _firestoreService.getWorkoutsForDateRange(userId, start, end).first;
-      return {'count': workouts.length};
+      final workouts = await _firestoreService.getWorkoutsForDateRangeOnce(userId, start, end).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => [],
+      );return {'count': workouts.length};
     } catch (e) {
       return {'count': 0};
     }

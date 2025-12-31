@@ -16,8 +16,8 @@ class WeeklyAggregationService {
       
       // Fetch all data for the week
       final studySessions = await _firestoreService
-          .getSessionsForDateRange(userId, weekStart, weekEnd)
-          .first;
+          .getSessionsForDateRangeOnce(userId, weekStart, weekEnd)
+          .timeout(const Duration(seconds: 5), onTimeout: () => []);
       
       // TODO: Fetch quiz sessions, workouts, habits when methods are available
       
@@ -30,7 +30,8 @@ class WeeklyAggregationService {
       // Calculate XP earned this week
       final xpTransactions = await _dbIntegration
           .getXPTransactions(userId)
-          .first;
+          .first
+          .timeout(const Duration(seconds: 10), onTimeout: () => []);
       
       final weekXP = xpTransactions
           .where((tx) => 

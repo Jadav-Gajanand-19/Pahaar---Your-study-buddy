@@ -348,46 +348,47 @@ class _DayCircle extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
-      child: Opacity(
-        opacity: isLocked && !isCompleted ? 0.4 : 1.0,
-        child: Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: isCompleted
-                ? kMilitaryGreen
-                : (isToday ? kCommandGold.withOpacity(0.2) : Colors.grey[800]),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: isToday ? kCommandGold : Colors.transparent,
-              width: 2,
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: isCompleted
+              ? kMilitaryGreen
+              : (isPast 
+                  ? kStatusPriority // Missed past day
+                  : (isToday ? kCommandGold.withOpacity(0.2) : Colors.grey[800])),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: isToday ? kCommandGold : Colors.transparent,
+            width: 2,
+          ),
+        ),
+        child: Stack(
+          children: [
+            Center(
+              child: isCompleted
+                  ? const Icon(Icons.check, color: Colors.white, size: 18)
+                  : (isPast 
+                      ? const Icon(Icons.close, color: Colors.white, size: 18) // Missed icon
+                      : Text(
+                          '$dayNumber',
+                          style: GoogleFonts.lato(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: isToday ? kCommandGold : kTextSecondary,
+                          ),
+                        )),
             ),
-          ),
-          child: Stack(
-            children: [
+            // Show lock icon for future days only
+            if (isLocked && !isCompleted && !isPast)
               Center(
-                child: isCompleted
-                    ? const Icon(Icons.check, color: Colors.white, size: 18)
-                    : Text(
-                        '$dayNumber',
-                        style: GoogleFonts.lato(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: isToday ? kCommandGold : kTextSecondary,
-                        ),
-                      ),
-              ),
-              // Show lock icon for past non-completed days
-              if (isLocked && !isCompleted)
-                Center(
-                  child: Icon(
-                    isPast ? Icons.lock : Icons.lock_clock,
-                    color: Colors.white.withOpacity(0.6),
-                    size: 14,
-                  ),
+                child: Icon(
+                  Icons.lock_clock,
+                  color: Colors.white.withOpacity(0.6),
+                  size: 14,
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );

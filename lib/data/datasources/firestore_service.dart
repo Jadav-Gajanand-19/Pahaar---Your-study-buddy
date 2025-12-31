@@ -46,6 +46,10 @@ class FirestoreService {
   Stream<List<StudySession>> getSessionsForDateRange(String userId, DateTime start, DateTime end) {
     return _db.collection('users').doc(userId).collection('study_sessions').where('startTime', isGreaterThanOrEqualTo: Timestamp.fromDate(start)).where('startTime', isLessThan: Timestamp.fromDate(end)).snapshots().map((snapshot) => snapshot.docs.map((doc) => StudySession.fromFirestore(doc)).toList());
   }
+  Future<List<StudySession>> getSessionsForDateRangeOnce(String userId, DateTime start, DateTime end) async {
+    final snapshot = await _db.collection('users').doc(userId).collection('study_sessions').where('startTime', isGreaterThanOrEqualTo: Timestamp.fromDate(start)).where('startTime', isLessThan: Timestamp.fromDate(end)).get();
+    return snapshot.docs.map((doc) => StudySession.fromFirestore(doc)).toList();
+  }
   Future<DocumentReference> addStudySession(String userId, StudySession session) {
     return _db.collection('users').doc(userId).collection('study_sessions').add(session.toFirestore());
   }
@@ -59,6 +63,12 @@ class FirestoreService {
     final startOfMonth = DateTime(month.year, month.month, 1);
     final endOfMonth = DateTime(month.year, month.month + 1, 1);
     return getSessionsForDateRange(userId, startOfMonth, endOfMonth);
+  }
+
+  Future<List<StudySession>> getSessionsForMonthOnce(String userId, DateTime month) async {
+    final startOfMonth = DateTime(month.year, month.month, 1);
+    final endOfMonth = DateTime(month.year, month.month + 1, 1);
+    return getSessionsForDateRangeOnce(userId, startOfMonth, endOfMonth);
   }
 
   // --- Habit Methods ---
@@ -238,12 +248,12 @@ class FirestoreService {
 
   // --- Fitness Tracker Methods ---
   Stream<List<WorkoutModel>> getWorkouts(String userId) {
-    return _db.collection('users').doc(userId).collection('workouts')
-        .orderBy('date', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => WorkoutModel.fromFirestore(doc))
-            .toList());
+    return _db.collection('users').doc(userId).collection('workouts').orderBy('date', descending: true).snapshots().map((snapshot) => snapshot.docs.map((doc) => WorkoutModel.fromFirestore(doc)).toList());
+  }
+
+  Future<List<WorkoutModel>> getWorkoutsOnce(String userId) async {
+    final snapshot = await _db.collection('users').doc(userId).collection('workouts').get();
+    return snapshot.docs.map((doc) => WorkoutModel.fromFirestore(doc)).toList();
   }
 
   Stream<List<WorkoutModel>> getWorkoutsForDateRange(
@@ -256,6 +266,17 @@ class FirestoreService {
         .map((snapshot) => snapshot.docs
             .map((doc) => WorkoutModel.fromFirestore(doc))
             .toList());
+  }
+
+  Future<List<WorkoutModel>> getWorkoutsForDateRangeOnce(
+      String userId, DateTime start, DateTime end) async {
+    final snapshot = await _db.collection('users').doc(userId).collection('workouts')
+        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .where('date', isLessThan: Timestamp.fromDate(end))
+        .get();
+    return snapshot.docs
+        .map((doc) => WorkoutModel.fromFirestore(doc))
+        .toList();
   }
 
   Stream<List<WorkoutModel>> getTodaysWorkouts(String userId) {
@@ -342,12 +363,12 @@ class FirestoreService {
 
   // Get user's quiz history
   Stream<List<QuizSession>> getUserQuizSessions(String userId) {
-    return _db.collection('users').doc(userId).collection('quiz_sessions')
-        .orderBy('startTime', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => QuizSession.fromFirestore(doc))
-            .toList());
+    return _db.collection('users').doc(userId).collection('quiz_sessions').orderBy('startTime', descending: true).snapshots().map((snapshot) => snapshot.docs.map((doc) => QuizSession.fromFirestore(doc)).toList());
+  }
+
+  Future<List<QuizSession>> getUserQuizSessionsOnce(String userId) async {
+    final snapshot = await _db.collection('users').doc(userId).collection('quiz_sessions').get();
+    return snapshot.docs.map((doc) => QuizSession.fromFirestore(doc)).toList();
   }
 
 
@@ -422,9 +443,12 @@ class FirestoreService {
 
   // --- Achievement Methods ---
   Stream<List<String>> getUnlockedAchievementIds(String userId) {
-    return _db.collection('users').doc(userId).collection('achievements')
-        .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => doc.id).toList());
+    return _db.collection('users').doc(userId).collection('achievements').snapshots().map((snapshot) => snapshot.docs.map((doc) => doc.id).toList());
+  }
+
+  Future<List<String>> getUnlockedAchievementIdsOnce(String userId) async {
+    final snapshot = await _db.collection('users').doc(userId).collection('achievements').get();
+    return snapshot.docs.map((doc) => doc.id).toList();
   }
 
   Future<void> unlockAchievement(String userId, String achievementId, DateTime unlockedAt) {

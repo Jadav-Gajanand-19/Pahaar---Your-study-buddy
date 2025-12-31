@@ -485,14 +485,35 @@ class RevisionPlannerView extends ConsumerWidget {
                                       color: const Color(0xFFF5F5F5),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
-                                    child: Text(
-                                      topic.subject.toUpperCase(),
-                                      style: GoogleFonts.blackOpsOne(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: kTextDarkSecondary,
-                                        letterSpacing: 1.0
-                                      ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          topic.subject.toUpperCase(),
+                                          style: GoogleFonts.blackOpsOne(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: kTextDarkSecondary,
+                                            letterSpacing: 1.0
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          width: 1,
+                                          height: 10,
+                                          color: kTextDarkSecondary.withOpacity(0.2),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'NEXT: ${DateFormat('MMM d').format(topic.nextRevisionDue.toDate())}',
+                                          style: GoogleFonts.blackOpsOne(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: const Color(0xFFD4AF37), // Gold
+                                            letterSpacing: 0.5
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                ],
@@ -576,38 +597,42 @@ class RevisionPlannerView extends ConsumerWidget {
                                   Expanded(
                                     child: InkWell(
                                       onTap: (isOverdue || isDueToday) ? () async {
-                                         if (user != null) {
-                                           final notificationService = NotificationService();
-                                           await notificationService.cancelNotification(topic.id!.hashCode);
-                                           final newDueDate = await ref.read(firestoreServiceProvider).markTopicAsRevised(user.uid, topic);
-                                           
-                                           // Show success message with next revision date
-                                           if (context.mounted) {
-                                             ScaffoldMessenger.of(context).showSnackBar(
-                                               SnackBar(
-                                                 content: Text(
-                                                   '✅ Revised! Next revision: ${DateFormat('MMM d, yyyy').format(newDueDate)}',
-                                                   style: GoogleFonts.lato(fontWeight: FontWeight.bold),
-                                                 ),
-                                                 backgroundColor: const Color(0xFF2E7D32),
-                                                 duration: const Duration(seconds: 3),
-                                               ),
-                                             );
-                                           }
-                                           
-                                           // Reschedule notification if needed
-                                           if (topic.reminderTime != null) {
-                                             final timeParts = topic.reminderTime!.split(':');
-                                             final time = TimeOfDay(hour: int.parse(timeParts[0]), minute: int.parse(timeParts[1]));
-                                             final scheduleDate = DateTime(newDueDate.year, newDueDate.month, newDueDate.day, time.hour, time.minute);
-                                             await notificationService.scheduleDailyHabitReminder(
-                                               id: topic.id!.hashCode,
-                                               title: 'Prahaar Revision Reminder',
-                                               body: 'Time to revise: ${topic.topicName}',
-                                               scheduledTime: TimeOfDay.fromDateTime(scheduleDate),
-                                             );
-                                           }
-                                         }
+                                        if (user != null) {
+                                          final notificationService = NotificationService();
+                                          await notificationService.cancelNotification(topic.id!.hashCode);
+                                          final newDueDate = await ref.read(firestoreServiceProvider).markTopicAsRevised(user.uid, topic);
+
+                                          // Show success message with next revision date
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  '✅ Revised! Next revision: ${DateFormat('MMM d, yyyy').format(newDueDate)}',
+                                                  style: GoogleFonts.lato(fontWeight: FontWeight.bold),
+                                                ),
+                                                backgroundColor: const Color(0xFF2E7D32),
+                                                duration: const Duration(seconds: 3),
+                                              ),
+                                            );
+                                          }
+
+                                          // Always reschedule notification using hybrid service
+                                          final hybridService = ref.read(hybridNotificationServiceProvider);
+                                          TimeOfDay? scheduleTime;
+                                          if (topic.reminderTime != null) {
+                                            final timeParts = topic.reminderTime!.split(':');
+                                            scheduleTime = TimeOfDay(hour: int.parse(timeParts[0]), minute: int.parse(timeParts[1]));
+                                          }
+
+                                          await hybridService.scheduleRevisionReminderHybrid(
+                                            userId: user.uid,
+                                            topicId: topic.id!,
+                                            topicName: topic.topicName,
+                                            subject: topic.subject,
+                                            dueDate: newDueDate,
+                                            reminderTime: scheduleTime, // Service now handles null by defaulting to morning
+                                          );
+                                        }
                                       } : null,
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -1153,18 +1178,16 @@ void _showAddOrEditRevisionTopicDialog(BuildContext context, WidgetRef ref) {
                                   
                                   final docRef = await ref.read(firestoreServiceProvider).addRevisionTopic(user.uid, newTopic);
                                   
-                                  // Schedule hybrid notification for critical revision reminders
-                                  if (selectedReminderTime != null) {
-                                    final hybridService = ref.read(hybridNotificationServiceProvider);
-                                    await hybridService.scheduleRevisionReminderHybrid(
-                                      userId: user.uid,
-                                      topicId: docRef.id,
-                                      topicName: topicController.text.trim(),
-                                      subject: subjectController.text.trim(),
-                                      dueDate: nextDue,
-                                      reminderTime: selectedReminderTime,
-                                    );
-                                  }
+                                  // Always schedule hybrid notification for revision reminders
+                                  final hybridService = ref.read(hybridNotificationServiceProvider);
+                                  await hybridService.scheduleRevisionReminderHybrid(
+                                    userId: user.uid,
+                                    topicId: docRef.id,
+                                    topicName: topicController.text.trim(),
+                                    subject: subjectController.text.trim(),
+                                    dueDate: nextDue,
+                                    reminderTime: selectedReminderTime, // Service now handles null by defaulting to morning
+                                  );
                                 }
                                 Navigator.pop(context);
                               }

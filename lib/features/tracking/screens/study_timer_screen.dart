@@ -31,7 +31,7 @@ class StudyTimerScreen extends ConsumerStatefulWidget {
 class _StudyTimerScreenState extends ConsumerState<StudyTimerScreen> with TickerProviderStateMixin {
   Timer? _timer;
   DateTime? _startTime; // Track actual start time
-  Duration _pausedDuration = Duration.zero; // Track total paused time
+  Duration _elapsedWhenPaused = Duration.zero; // Track elapsed time when paused
   bool _isTimerRunning = false;
   
   final _subjectController = TextEditingController(text: "General Studies");
@@ -39,12 +39,12 @@ class _StudyTimerScreenState extends ConsumerState<StudyTimerScreen> with Ticker
   
   // Calculate current elapsed duration based on actual time
   Duration get _elapsedDuration {
-    if (_startTime == null) return Duration.zero;
+    if (_startTime == null) return _elapsedWhenPaused;
     if (_isTimerRunning) {
-      return DateTime.now().difference(_startTime!) - _pausedDuration;
+      return _elapsedWhenPaused + DateTime.now().difference(_startTime!);
     } else {
-      // When paused, return the last known elapsed time
-      return _pausedDuration;
+      // When paused, return the saved elapsed time
+      return _elapsedWhenPaused;
     }
   }
 
@@ -54,7 +54,7 @@ class _StudyTimerScreenState extends ConsumerState<StudyTimerScreen> with Ticker
     if (widget.restoredStartTime != null) {
       // Restoration logic - timer was running before
       _startTime = widget.restoredStartTime;
-      _pausedDuration = widget.restoredPreviouslyElapsed ?? Duration.zero;
+      _elapsedWhenPaused = widget.restoredPreviouslyElapsed ?? Duration.zero;
       _isTimerRunning = true;
       
       _subjectController.text = widget.restoredSubject ?? "General Studies";
@@ -71,13 +71,8 @@ class _StudyTimerScreenState extends ConsumerState<StudyTimerScreen> with Ticker
   }
 
   void _startTimer() {
-    if (_startTime == null) {
-      // First time starting - set the start time
-      _startTime = DateTime.now();
-    } else {
-      // Resuming from pause - adjust start time to account for paused duration
-      _startTime = DateTime.now().subtract(_pausedDuration);
-    }
+    // Set start time for this run segment
+    _startTime = DateTime.now();
     
     setState(() {
       _isTimerRunning = true;
@@ -98,7 +93,8 @@ class _StudyTimerScreenState extends ConsumerState<StudyTimerScreen> with Ticker
     
     // Save the current elapsed time when pausing
     if (_startTime != null) {
-      _pausedDuration = _elapsedDuration;
+      _elapsedWhenPaused = _elapsedDuration;
+      _startTime = null; // Reset start time for next resume
     }
     
     setState(() {
@@ -139,11 +135,20 @@ class _StudyTimerScreenState extends ConsumerState<StudyTimerScreen> with Ticker
   }
 
   Future<void> _finishSession() async {
+    // Capture the elapsed duration BEFORE stopping the timer
+    // This ensures we get the correct time even if timer was running
+    final Duration finalElapsedDuration = _elapsedDuration;
+    
     _timer?.cancel();
+    // Update elapsed time if timer was running
+    if (_isTimerRunning && _startTime != null) {
+      _elapsedWhenPaused = finalElapsedDuration;
+      _startTime = null;
+    }
     setState(() => _isTimerRunning = false);
     
     // Check if study duration is at least 1 minute
-    if (_elapsedDuration.inSeconds < 60) {
+    if (finalElapsedDuration.inSeconds < 60) {
       // Too short to save
        if(mounted) {
          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Session must be at least 1 minute to record.')));
@@ -248,9 +253,12 @@ class _StudyTimerScreenState extends ConsumerState<StudyTimerScreen> with Ticker
 
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final hours = twoDigits(duration.inHours);
     final minutes = twoDigits(duration.inMinutes.remainder(60));
     final seconds = twoDigits(duration.inSeconds.remainder(60));
-    return '$minutes:$seconds';
+    
+    // Show HH:MM:SS format to support up to 10 hours of study time
+    return '$hours:$minutes:$seconds';
   }
 
   @override

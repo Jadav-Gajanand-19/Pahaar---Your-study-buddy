@@ -65,34 +65,34 @@ class HybridNotificationService {
     TimeOfDay? reminderTime,
   }) async {
     try {
-      if (reminderTime != null) {
-        // 1. Schedule LOCAL notification
-        await _localNotifications.scheduleRevisionReminder(
-          id: topicId.hashCode,
-          topicName: topicName,
-          subject: subject,
-          dueDate: dueDate,
-          reminderTime: reminderTime,
-        );
+      final timeToSchedule = reminderTime ?? const TimeOfDay(hour: 8, minute: 0);
+      
+      // 1. Schedule LOCAL notification
+      await _localNotifications.scheduleRevisionReminder(
+        id: topicId.hashCode,
+        topicName: topicName,
+        subject: subject,
+        dueDate: dueDate,
+        reminderTime: timeToSchedule,
+      );
 
-        // 2. Schedule GLOBAL FCM notification
-        await _fcmService.scheduleGlobalNotification(
-          userId: userId,
-          type: 'revision_reminder',
-          title: 'Revision Alert: $subject',
-          body: topicName,
-          scheduledTime: '${reminderTime.hour.toString().padLeft(2, '0')}:${reminderTime.minute.toString().padLeft(2, '0')}',
-          recurrence: 'once',
-          additionalData: {
-            'topicId': topicId,
-            'subject': subject,
-            'dueDate': dueDate.toIso8601String(),
-            'screen': 'prep_screen',
-          },
-        );
+      // 2. Schedule GLOBAL FCM notification
+      await _fcmService.scheduleGlobalNotification(
+        userId: userId,
+        type: 'revision_reminder',
+        title: 'Revision Alert: $subject',
+        body: topicName,
+        scheduledTime: '${timeToSchedule.hour.toString().padLeft(2, '0')}:${timeToSchedule.minute.toString().padLeft(2, '0')}',
+        recurrence: 'once',
+        additionalData: {
+          'topicId': topicId,
+          'subject': subject,
+          'dueDate': dueDate.toIso8601String(),
+          'screen': 'prep_screen',
+        },
+      );
 
-        print('✅ Hybrid revision reminder scheduled: Local + Global');
-      }
+      print('✅ Hybrid revision reminder scheduled: Local + Global');
     } catch (e) {
       print('❌ Error scheduling hybrid revision reminder: $e');
     }
