@@ -9,8 +9,7 @@ final analyticsServiceProvider = Provider<AnalyticsService>((ref) {
   return AnalyticsService(firestoreService);
 });
 
-/// Selected Month Provider for Intel Report
-final selectedMonthProvider = StateProvider<DateTime>((ref) => DateTime.now());
+// NOTE: selectedMonthProvider is now defined in firestore_providers.dart
 
 /// Mock Test Analytics Provider
 final mockTestAnalyticsProvider = FutureProvider.autoDispose((ref) async {

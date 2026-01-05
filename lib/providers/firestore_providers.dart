@@ -16,9 +16,11 @@ import 'package:prahar/providers/midnight_refresh_provider.dart';
 enum StatsDateRange { week, month }
 final statsDateRangeProvider = StateProvider<StatsDateRange>((ref) => StatsDateRange.week);
 
-(DateTime, DateTime) _getWeekDateRange() {
-  final now = DateTime.now();
-  final daysToSubtract = now.weekday % 7;
+/// Get week date range with Monday as start (consistent with week comparison)
+(DateTime, DateTime) _getWeekDateRange({DateTime? fromDate}) {
+  final now = fromDate ?? DateTime.now();
+  // weekday: 1=Monday, 7=Sunday. This gives Monday as week start.
+  final daysToSubtract = now.weekday - 1;
   final startOfWeek = DateTime(now.year, now.month, now.day - daysToSubtract);
   final endOfWeek = startOfWeek.add(const Duration(days: 7));
   return (startOfWeek, endOfWeek);
@@ -112,18 +114,26 @@ final weeklyGoalsProvider = StreamProvider<List<WeeklyGoal>>((ref) {
   return ref.watch(firestoreServiceProvider).getGoalsForCurrentWeek(user.uid);
 });
 
-// --- STATS PROVIDERS ---
+// --- STATS PROVIDERS (Now respect selectedMonthProvider) ---
+/// Provider to get the selected month for Intel Report
+final selectedMonthProvider = StateProvider<DateTime>((ref) => DateTime.now());
+
 final sessionsForStatsProvider = StreamProvider<List<StudySession>>((ref) {
   final user = ref.watch(authStateChangeProvider).value;
   if (user == null) return Stream.value([]);
   final range = ref.watch(statsDateRangeProvider);
+  final selectedMonth = ref.watch(selectedMonthProvider);
   final firestoreService = ref.watch(firestoreServiceProvider);
-  final now = DateTime.now();
+  
   if (range == StatsDateRange.week) {
-    final (start, end) = _getWeekDateRange();
+    // For week view, use selected month's week or current week if same month
+    final now = DateTime.now();
+    final isCurrentMonth = selectedMonth.year == now.year && selectedMonth.month == now.month;
+    final referenceDate = isCurrentMonth ? now : DateTime(selectedMonth.year, selectedMonth.month, 15);
+    final (start, end) = _getWeekDateRange(fromDate: referenceDate);
     return firestoreService.getSessionsForDateRange(user.uid, start, end);
   } else {
-    return firestoreService.getSessionsForMonth(user.uid, now);
+    return firestoreService.getSessionsForMonth(user.uid, selectedMonth);
   }
 });
 
@@ -131,15 +141,19 @@ final habitLogsForStatsProvider = StreamProvider<List<DocumentSnapshot>>((ref) {
   final user = ref.watch(authStateChangeProvider).value;
   if (user == null) return Stream.value([]);
   final range = ref.watch(statsDateRangeProvider);
+  final selectedMonth = ref.watch(selectedMonthProvider);
   final firestoreService = ref.watch(firestoreServiceProvider);
-  final now = DateTime.now();
+  
   DateTime start;
   DateTime end;
   if (range == StatsDateRange.week) {
-    (start, end) = _getWeekDateRange();
+    final now = DateTime.now();
+    final isCurrentMonth = selectedMonth.year == now.year && selectedMonth.month == now.month;
+    final referenceDate = isCurrentMonth ? now : DateTime(selectedMonth.year, selectedMonth.month, 15);
+    (start, end) = _getWeekDateRange(fromDate: referenceDate);
   } else {
-    start = DateTime(now.year, now.month, 1);
-    end = DateTime(now.year, now.month + 1, 1);
+    start = DateTime(selectedMonth.year, selectedMonth.month, 1);
+    end = DateTime(selectedMonth.year, selectedMonth.month + 1, 1);
   }
   return firestoreService.getHabitLogsForDateRange(user.uid, start, end);
 });
@@ -148,15 +162,19 @@ final tasksForStatsProvider = StreamProvider<List<Task>>((ref) {
   final user = ref.watch(authStateChangeProvider).value;
   if (user == null) return Stream.value([]);
   final range = ref.watch(statsDateRangeProvider);
+  final selectedMonth = ref.watch(selectedMonthProvider);
   final firestoreService = ref.watch(firestoreServiceProvider);
-  final now = DateTime.now();
+  
   DateTime start;
   DateTime end;
   if (range == StatsDateRange.week) {
-    (start, end) = _getWeekDateRange();
+    final now = DateTime.now();
+    final isCurrentMonth = selectedMonth.year == now.year && selectedMonth.month == now.month;
+    final referenceDate = isCurrentMonth ? now : DateTime(selectedMonth.year, selectedMonth.month, 15);
+    (start, end) = _getWeekDateRange(fromDate: referenceDate);
   } else {
-    start = DateTime(now.year, now.month, 1);
-    end = DateTime(now.year, now.month + 1, 1);
+    start = DateTime(selectedMonth.year, selectedMonth.month, 1);
+    end = DateTime(selectedMonth.year, selectedMonth.month + 1, 1);
   }
   return firestoreService.getTasksForDateRange(user.uid, start, end);
 });

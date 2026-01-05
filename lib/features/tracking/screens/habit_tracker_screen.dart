@@ -155,7 +155,7 @@ class HabitTrackerScreen extends ConsumerWidget {
                                       ),
                                       Text(
                                         '$percentage%',
-                                        style: GoogleFonts.blackOpsOne(fontSize: 28, fontWeight: FontWeight.bold, color: const Color(0xFF8DC63F)), // Reduced from 32
+                                        style: GoogleFonts.blackOpsOne(fontSize: 24, fontWeight: FontWeight.bold, color: const Color(0xFF8DC63F)), // Reduced from 28
                                       ),
                                     ],
                                   ),
@@ -602,10 +602,12 @@ void _showAddOrEditHabitDialog(BuildContext context, WidgetRef ref, {Habit? habi
 Map<String, dynamic> calculateAdvancedStreak(List<Timestamp> timestamps, DateTime habitStartDate) {
   if (timestamps.isEmpty) return {'currentStreak': 0, 'longestStreak': 0, 'startDate': habitStartDate};
 
-  final uniqueDates = timestamps
+  final List<DateTime> uniqueDates = timestamps
       .map((ts) => DateTime(ts.toDate().year, ts.toDate().month, ts.toDate().day))
-      .toSet().toList();
-  uniqueDates.sort((a, b) => b.compareTo(a));
+      .toSet()
+      .toList()
+      .cast<DateTime>();
+  uniqueDates.sort((DateTime a, DateTime b) => b.compareTo(a));
 
   int currentStreak = 0;
   DateTime effectiveStartDate = habitStartDate;

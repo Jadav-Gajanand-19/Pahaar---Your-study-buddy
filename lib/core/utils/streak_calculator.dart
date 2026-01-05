@@ -4,13 +4,14 @@ int calculateStreak(List<Timestamp> timestamps) {
   if (timestamps.isEmpty) return 0;
 
   // Convert timestamps to DateTimes and remove duplicates for the same day
-  final uniqueDates = timestamps
+  final List<DateTime> uniqueDates = timestamps
       .map((ts) => DateTime(ts.toDate().year, ts.toDate().month, ts.toDate().day))
       .toSet()
-      .toList();
+      .toList()
+      .cast<DateTime>();
 
   // Sort dates in descending order
-  uniqueDates.sort((a, b) => b.compareTo(a));
+  uniqueDates.sort((DateTime a, DateTime b) => b.compareTo(a));
 
   int streak = 0;
   final today = DateTime.now();

@@ -26,20 +26,22 @@ class IntelReportScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final range = ref.watch(statsDateRangeProvider);
     final rangeNotifier = ref.read(statsDateRangeProvider.notifier);
+    final selectedMonth = ref.watch(selectedMonthProvider);
     final sessionsAsync = ref.watch(sessionsForStatsProvider);
     final tasksAsync = ref.watch(tasksForStatsProvider);
     final habitsAsync = ref.watch(habitLogsForStatsProvider);
     final user = ref.watch(authStateChangeProvider).value;
     
-    // Get workouts for the selected date range
+    // Get workouts for the selected date range (respects selectedMonth)
     final now = DateTime.now();
+    final isCurrentMonth = selectedMonth.year == now.year && selectedMonth.month == now.month;
     final (start, end) = range == StatsDateRange.week
-        ? _getWeekDateRange()
-        : (DateTime(now.year, now.month, 1), DateTime(now.year, now.month + 1, 1));
+        ? _getWeekDateRange(fromDate: isCurrentMonth ? now : DateTime(selectedMonth.year, selectedMonth.month, 15))
+        : (DateTime(selectedMonth.year, selectedMonth.month, 1), DateTime(selectedMonth.year, selectedMonth.month + 1, 1));
     
     final workoutsAsync = user != null
         ? ref.watch(workoutsForDateRangeProvider((userId: user.uid, start: start, end: end)))
-        : const AsyncValue.data([]);
+        : const AsyncValue<List<WorkoutModel>>.data([]);
 
     // Data Calculation
     final double totalHours = sessionsAsync.maybeWhen(
@@ -58,13 +60,43 @@ class IntelReportScreen extends ConsumerWidget {
     final int totalTasks = tasksCompleted + tasksPending;
     final int efficiency = totalTasks > 0 ? ((tasksCompleted / totalTasks) * 100).round() : 0;
     
-    final numDaysStudied = sessionsAsync.maybeWhen(
-      data: (sessions) => sessions.map((s) => DateFormat('yyyy-MM-dd').format(s.startTime)).toSet().length,
-      orElse: () => 1,
-    );
-    final double avgHours = (range == StatsDateRange.week)
-        ? (totalHours / 7)
-        : (numDaysStudied > 0 ? totalHours / numDaysStudied : 0.0);
+    // Calculate days passed in current period for accurate average
+    final int daysInPeriod;
+    if (range == StatsDateRange.week) {
+      // For week: use actual days passed if current week, otherwise 7
+      if (isCurrentMonth) {
+        daysInPeriod = now.weekday; // Monday=1, so if today is Wed, that's 3 days
+      } else {
+        daysInPeriod = 7;
+      }
+    } else {
+      // For month: use days passed if current month, otherwise full month days
+      if (isCurrentMonth) {
+        daysInPeriod = now.day;
+      } else {
+        final lastDayOfMonth = DateTime(selectedMonth.year, selectedMonth.month + 1, 0);
+        daysInPeriod = lastDayOfMonth.day;
+      }
+    }
+    final double avgHours = daysInPeriod > 0 ? totalHours / daysInPeriod : 0.0;
+    
+    // Dynamic status calculation (target: 3 hours/day)
+    const double targetDailyHours = 3.0;
+    final String dailyStatus;
+    final bool isOnTrack;
+    if (avgHours >= targetDailyHours) {
+      dailyStatus = 'Above Target';
+      isOnTrack = true;
+    } else if (avgHours >= targetDailyHours * 0.7) {
+      dailyStatus = 'On Track';
+      isOnTrack = true;
+    } else if (avgHours > 0) {
+      dailyStatus = 'Needs Focus';
+      isOnTrack = false;
+    } else {
+      dailyStatus = 'No Data';
+      isOnTrack = false;
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7F5), // Light Grey bg
@@ -164,10 +196,11 @@ class IntelReportScreen extends ConsumerWidget {
                   child: _buildOverviewCard(
                     title: 'TOTAL STUDY\nHOURS',
                     value: _formatDuration(totalHours),
-                    subtitle: '+12% vs last week',
+                    subtitle: 'This Period',
                     isPositive: true,
                     icon: Icons.timer,
-                    subtitleFontSize: 10, // Reduced from default 12
+                    subtitleFontSize: 10,
+                    showDot: true,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -175,8 +208,8 @@ class IntelReportScreen extends ConsumerWidget {
                   child: _buildOverviewCard(
                     title: 'DAILY AVERAGE',
                     value: _formatDuration(avgHours),
-                    subtitle: 'On Track',
-                    isPositive: true,
+                    subtitle: dailyStatus,
+                    isPositive: isOnTrack,
                     icon: Icons.timelapse,
                     showDot: true,
                   ),
@@ -307,7 +340,7 @@ class IntelReportScreen extends ConsumerWidget {
                             const SizedBox(width: 12),
                             Flexible(
                               child: Text(
-                                'EFFORT DISTRIBUTION',
+                                'TASK COMPLETION',
                                 style: GoogleFonts.blackOpsOne(
                                   fontSize: 14, 
                                   fontWeight: FontWeight.bold, 
@@ -336,22 +369,24 @@ class IntelReportScreen extends ConsumerWidget {
                             sectionsSpace: 0,
                             centerSpaceRadius: 70,
                             startDegreeOffset: -90,
-                            sections: [
+                            sections: totalTasks > 0 ? [
                               PieChartSectionData(
-                                color: const Color(0xFF33691E), // Dark Green
-                                value: 50,
+                                color: const Color(0xFF33691E), // Dark Green - Completed
+                                value: tasksCompleted.toDouble(),
                                 radius: 25,
                                 showTitle: false,
                               ),
+                              if (tasksPending > 0)
+                                PieChartSectionData(
+                                  color: const Color(0xFFAFB42B), // Olive - Pending
+                                  value: tasksPending.toDouble(),
+                                  radius: 25,
+                                  showTitle: false,
+                                ),
+                            ] : [
                               PieChartSectionData(
-                                color: const Color(0xFFAFB42B), // Olive
-                                value: 25,
-                                radius: 25,
-                                showTitle: false,
-                              ),
-                              PieChartSectionData(
-                                color: const Color(0xFFEF5350), // Red
-                                value: 25,
+                                color: Colors.grey[300]!,
+                                value: 1,
                                 radius: 25,
                                 showTitle: false,
                               ),
@@ -406,15 +441,13 @@ class IntelReportScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 32),
                   
-                  // Legend
+                  // Legend - Dynamic values
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Flexible(child: _buildLegendItem('COMPLETED', '50%', const Color(0xFF33691E))),
+                      Flexible(child: _buildLegendItem('COMPLETED', totalTasks > 0 ? '${(tasksCompleted / totalTasks * 100).round()}%' : '0%', const Color(0xFF33691E))),
                       const SizedBox(width: 8),
-                      Flexible(child: _buildLegendItem('PENDING', '25%', const Color(0xFFAFB42B))),
-                      const SizedBox(width: 8),
-                      Flexible(child: _buildLegendItem('MISSED', '25%', const Color(0xFFEF5350))),
+                      Flexible(child: _buildLegendItem('PENDING', totalTasks > 0 ? '${(tasksPending / totalTasks * 100).round()}%' : '0%', const Color(0xFFAFB42B))),
                     ],
                   ),
                 ],
@@ -591,11 +624,27 @@ class IntelReportScreen extends ConsumerWidget {
     return sessionsAsync.maybeWhen(
       data: (sessions) {
         if (sessions.isEmpty) return 0;
-        // Simple streak calculation based on consecutive days
-        int streak = 1;
-        final dates = sessions.map((s) => DateTime(s.date.year, s.date.month, s.date.day)).toSet().toList();
-        dates.sort((a, b) => b.compareTo(a) as int);
         
+        // Get unique dates and sort descending - cast to proper type
+        final List<DateTime> dates = sessions
+            .map((s) => DateTime(s.date.year, s.date.month, s.date.day))
+            .toSet()
+            .toList()
+            .cast<DateTime>();
+        dates.sort((DateTime a, DateTime b) => b.compareTo(a));
+        
+        if (dates.isEmpty) return 0;
+        
+        final today = DateTime.now();
+        final todayDate = DateTime(today.year, today.month, today.day);
+        final yesterdayDate = todayDate.subtract(const Duration(days: 1));
+        
+        // Streak only counts if most recent workout was today or yesterday
+        if (!dates.first.isAtSameMomentAs(todayDate) && !dates.first.isAtSameMomentAs(yesterdayDate)) {
+          return 0; // Streak is broken
+        }
+        
+        int streak = 1;
         for (int i = 0; i < dates.length - 1; i++) {
           final diff = dates[i].difference(dates[i + 1]).inDays;
           if (diff == 1) {
@@ -635,9 +684,11 @@ class IntelReportScreen extends ConsumerWidget {
     );
   }
   
-  (DateTime, DateTime) _getWeekDateRange() {
-    final now = DateTime.now();
-    final daysToSubtract = now.weekday % 7;
+  /// Get week date range with Monday as start
+  (DateTime, DateTime) _getWeekDateRange({DateTime? fromDate}) {
+    final now = fromDate ?? DateTime.now();
+    // weekday: 1=Monday, 7=Sunday. This gives Monday as week start.
+    final daysToSubtract = now.weekday - 1;
     final startOfWeek = DateTime(now.year, now.month, now.day - daysToSubtract);
     final endOfWeek = startOfWeek.add(const Duration(days: 7));
     return (startOfWeek, endOfWeek);

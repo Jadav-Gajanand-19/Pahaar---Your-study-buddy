@@ -12,7 +12,7 @@ import 'package:prahar/features/dashboard/widgets/session_log_tile.dart';
 import 'package:prahar/features/dashboard/widgets/upcoming_exams_card.dart';
 import 'package:prahar/features/dashboard/widgets/weekly_goals_card.dart';
 import 'package:prahar/features/dashboard/widgets/study_recommendations_card.dart';
-import 'package:prahar/features/dashboard/widgets/exam_readiness_card.dart';
+
 import 'package:prahar/features/dashboard/widgets/weekly_performance_card.dart';
 import 'package:prahar/features/dashboard/widgets/habit_challenge_card.dart';
 import 'package:prahar/features/tracking/screens/study_history_screen.dart';
@@ -117,8 +117,6 @@ class DashboardScreen extends ConsumerWidget {
           // Smart Study Suggestions (NEW)
           const SliverToBoxAdapter(child: StudyRecommendationsCard()),
           
-          // Exam Readiness (NEW)
-          const SliverToBoxAdapter(child: ExamReadinessCard()),
           
           // Weekly Performance (NEW)
           const SliverToBoxAdapter(child: WeeklyPerformanceCard()),
