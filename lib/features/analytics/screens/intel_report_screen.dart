@@ -243,7 +243,10 @@ class IntelReportScreen extends ConsumerWidget {
                 Expanded(
                   child: _buildOverviewCard(
                     title: 'CONSISTENCY',
-                    value: '${_calculateWorkoutStreak(workoutsAsync)}',
+                    value: ref.watch(workoutStreakProvider).maybeWhen(
+                      data: (streak) => '$streak',
+                      orElse: () => '0',
+                    ),
                     subtitle: 'Day Streak',
                     isPositive: true,
                     icon: Icons.local_fire_department,

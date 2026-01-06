@@ -15,7 +15,6 @@ import 'package:prahar/features/dashboard/widgets/study_recommendations_card.dar
 
 import 'package:prahar/features/dashboard/widgets/weekly_performance_card.dart';
 import 'package:prahar/features/dashboard/widgets/habit_challenge_card.dart';
-import 'package:prahar/features/tracking/screens/study_history_screen.dart';
 import 'package:prahar/features/tracking/screens/study_timer_screen.dart';
 import 'package:prahar/providers/auth_providers.dart';
 import 'package:prahar/providers/firestore_providers.dart';
@@ -354,15 +353,6 @@ class DashboardScreen extends ConsumerWidget {
                         style: AppTextStyles.sectionHeader,
                       ),
                     ],
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.history, color: kCommandGold, size: 22),
-                    tooltip: 'View Complete Log',
-                    onPressed: () {
-                      Navigator.of(context).push(MaterialPageRoute(
-                        builder: (context) => const StudyHistoryScreen(),
-                      ));
-                    },
                   ),
                 ],
               ),

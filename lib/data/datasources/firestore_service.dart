@@ -280,10 +280,19 @@ class FirestoreService {
   }
 
   Stream<List<WorkoutModel>> getTodaysWorkouts(String userId) {
+    // NOTE: This method captures DateTime.now() at call time.
+    // The provider should watch currentDateProvider to re-invoke this on midnight.
     final now = DateTime.now();
     final startOfToday = DateTime(now.year, now.month, now.day);
     final endOfToday = DateTime(now.year, now.month, now.day + 1);
     return getWorkoutsForDateRange(userId, startOfToday, endOfToday);
+  }
+  
+  /// Get today's workouts with explicit date boundaries (for midnight refresh)
+  Stream<List<WorkoutModel>> getWorkoutsForDay(String userId, DateTime day) {
+    final startOfDay = DateTime(day.year, day.month, day.day);
+    final endOfDay = DateTime(day.year, day.month, day.day + 1);
+    return getWorkoutsForDateRange(userId, startOfDay, endOfDay);
   }
 
   Future<void> addWorkout(String userId, WorkoutModel workout) {

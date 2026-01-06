@@ -34,6 +34,15 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     // Fetch events for the focused month
     final eventsAsync = ref.watch(eventsForMonthProvider((userId: user.uid, month: _focusedDay)));
     
+    // Fetch study sessions for the focused month (for heatmap coloring)
+    final monthStart = DateTime(_focusedDay.year, _focusedDay.month, 1);
+    final monthEnd = DateTime(_focusedDay.year, _focusedDay.month + 1, 1);
+    final monthSessionsAsync = ref.watch(studySessionsForDateRangeProvider((
+      userId: user.uid,
+      start: monthStart,
+      end: monthEnd,
+    )));
+    
     // Fetch study sessions for selected day
     final selectedDayStart = _selectedDay != null
         ? DateTime(_selectedDay!.year, _selectedDay!.month, _selectedDay!.day)
@@ -51,6 +60,26 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       start: selectedDayStart,
       end: selectedDayEnd,
     )));
+    
+    // Prepare heatmap data from month sessions
+    final Map<DateTime, int> studyHeatmap = monthSessionsAsync.maybeWhen(
+      data: (sessions) {
+        final Map<DateTime, double> dailyMinutes = {};
+        for (var session in sessions) {
+          final date = session.startTime;
+          final day = DateTime(date.year, date.month, date.day);
+          dailyMinutes[day] = (dailyMinutes[day] ?? 0) + (session.durationInSeconds / 60.0);
+        }
+        return dailyMinutes.map((key, value) {
+          if (value < 30) return MapEntry(key, 1);      // < 30 min
+          if (value < 120) return MapEntry(key, 3);     // 30 min - 2 hr
+          if (value < 240) return MapEntry(key, 5);     // 2-4 hr
+          if (value < 360) return MapEntry(key, 7);     // 4-6 hr
+          return MapEntry(key, 10);                     // 6+ hr
+        });
+      },
+      orElse: () => <DateTime, int>{},
+    );
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
@@ -220,6 +249,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                            );
                          },
                          defaultBuilder: (context, day, focusedDay) {
+                           // Check study intensity first
+                           final studyDayKey = DateTime(day.year, day.month, day.day);
+                           final studyIntensity = studyHeatmap[studyDayKey];
+                           
                            // Check if day has events (including defence exams)
                            final dayEvents = allEvents.where((e) {
                              return e.date.year == day.year &&
@@ -262,6 +295,38 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                               ),
                             );
                            }
+                           
+                           // Show study intensity heatmap for days with study sessions
+                           if (studyIntensity != null) {
+                             // Color scale based on study intensity
+                             final Map<int, Color> colorsets = {
+                               1: const Color(0xFF4C5E35).withOpacity(0.2),  // < 30 min
+                               3: const Color(0xFF4C5E35).withOpacity(0.4),  // 30 min - 2 hr
+                               5: const Color(0xFF4C5E35).withOpacity(0.6),  // 2-4 hr
+                               7: const Color(0xFF4C5E35).withOpacity(0.8),  // 4-6 hr
+                               10: const Color(0xFF4C5E35),                  // 6+ hr
+                             };
+                             
+                             return Center(
+                               child: Container(
+                                 width: 40, height: 40,
+                                 decoration: BoxDecoration(
+                                   color: colorsets[studyIntensity] ?? const Color(0xFF4C5E35).withOpacity(0.3),
+                                   borderRadius: BorderRadius.circular(14),
+                                 ),
+                                 alignment: Alignment.center,
+                                 child: Text(
+                                   '${day.day}',
+                                   style: GoogleFonts.lato(
+                                     color: studyIntensity >= 5 ? Colors.white : const Color(0xFF1E232C), 
+                                     fontWeight: FontWeight.bold, 
+                                     fontSize: 16
+                                   ),
+                                 ),
+                               ),
+                             );
+                           }
+                           
                            return null; 
                          },
                        ),

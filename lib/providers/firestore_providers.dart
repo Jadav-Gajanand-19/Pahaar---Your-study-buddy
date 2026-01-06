@@ -98,11 +98,14 @@ final workoutsStreamProvider = StreamProvider<List<WorkoutModel>>((ref) {
 
 final todaysWorkoutsStreamProvider = StreamProvider<List<WorkoutModel>>((ref) {
   // Watch current date to refresh at midnight
-  ref.watch(currentDateProvider);
+  final currentDateAsync = ref.watch(currentDateProvider);
   
   final user = ref.watch(authStateChangeProvider).value;
   if (user == null) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).getTodaysWorkouts(user.uid);
+  
+  // Use the currentDate from provider to ensure proper midnight refresh
+  final today = currentDateAsync.valueOrNull ?? DateTime.now();
+  return ref.watch(firestoreServiceProvider).getWorkoutsForDay(user.uid, today);
 });
 
 final weeklyGoalsProvider = StreamProvider<List<WeeklyGoal>>((ref) {
@@ -112,6 +115,16 @@ final weeklyGoalsProvider = StreamProvider<List<WeeklyGoal>>((ref) {
   final user = ref.watch(authStateChangeProvider).value;
   if (user == null) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getGoalsForCurrentWeek(user.uid);
+});
+
+/// Workout streak provider - calculates streak from all-time workouts
+final workoutStreakProvider = FutureProvider<int>((ref) async {
+  // Watch current date to refresh at midnight
+  ref.watch(currentDateProvider);
+  
+  final user = ref.watch(authStateChangeProvider).value;
+  if (user == null) return 0;
+  return ref.watch(firestoreServiceProvider).getWorkoutStreak(user.uid);
 });
 
 // --- STATS PROVIDERS (Now respect selectedMonthProvider) ---
